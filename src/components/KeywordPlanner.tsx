@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { GEO_LOCATIONS, LANGUAGES, type KeywordResult } from "@/lib/constants";
 import { useTheme } from "@/lib/useTheme";
+import HistoryDrawer, { QueryHistoryItem } from "./HistoryDrawer";
 
 // ════════════════════════════════════════════════════════════
 //  Sparkline 迷你趋势图
@@ -104,7 +105,19 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // ── 本地历史加载 ──────────────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("kp_history");
+      if (saved) {
+        setHistory(JSON.parse(saved));
+      }
+    } catch {}
+  }, []);
 
   // ── Toast 辅助 ────────────────────────────────────────
   const showToast = useCallback((msg: string, isError = false) => {
@@ -157,12 +170,79 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
       setHasQueried(true);
       setSortKey(null);
       showToast(`✓ 查询完成，共 ${data.count} 条结果`);
+
+      // 自动保存到历史记录 (去重并保留最近 50 条)
+      if (data.results && data.results.length > 0) {
+        const now = new Date();
+        const dateStr = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const newItem: QueryHistoryItem = {
+          id: Date.now().toString(),
+          timestamp: Date.now(),
+          dateStr,
+          keywords: parseKws().join(", "),
+          keywordCount: parseKws().length,
+          mode,
+          location,
+          language,
+          resultsCount: data.results.length,
+          results: data.results,
+        };
+        setHistory((prev) => {
+          const updated = [newItem, ...prev.filter((h) => h.keywords !== newItem.keywords)].slice(0, 50);
+          try {
+            localStorage.setItem("kp_history", JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      }
     } catch (err) {
       showToast(`查询失败: ${err instanceof Error ? err.message : err}`, true);
     } finally {
       setLoading(false);
     }
   }, [kwCount, parseKws, mode, location, language, maxIdeas, showToast]);
+
+  // ── 历史记录操作 ──────────────────────────────────────
+  const handleSelectHistory = useCallback((item: QueryHistoryItem) => {
+    setKeywords(item.keywords.replace(/, /g, "\n"));
+    setMode(item.mode);
+    setLocation(item.location);
+    setLanguage(item.language);
+    setResults(item.results);
+    setHasQueried(true);
+    setSortKey(null);
+    showToast("✓ 已恢复历史查询结果（未消耗 API 额度）");
+  }, [showToast]);
+
+  const handleRerunHistory = useCallback((item: QueryHistoryItem) => {
+    setKeywords(item.keywords.replace(/, /g, "\n"));
+    setMode(item.mode);
+    setLocation(item.location);
+    setLanguage(item.language);
+    // 延迟一拍触发，确保 state 已就绪
+    setTimeout(() => {
+      const btn = document.getElementById("btn-start-query");
+      if (btn) btn.click();
+    }, 100);
+  }, []);
+
+  const handleDeleteHistory = useCallback((id: string) => {
+    setHistory((prev) => {
+      const updated = prev.filter((h) => h.id !== id);
+      try {
+        localStorage.setItem("kp_history", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const handleClearAllHistory = useCallback(() => {
+    setHistory([]);
+    try {
+      localStorage.removeItem("kp_history");
+    } catch {}
+    showToast("✓ 历史记录已清空");
+  }, [showToast]);
 
   // ── 排序 ──────────────────────────────────────────────
   const handleSort = useCallback(
@@ -254,6 +334,22 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
           </div>
 
           <div className="flex items-center gap-2">
+            {/* 历史记录按钮 */}
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              type="button"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a26] text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-medium shadow-sm transition-all inline-flex items-center gap-1.5"
+              title="查看查询历史记录"
+            >
+              <span>🕒</span>
+              <span className="hidden sm:inline">历史</span>
+              {history.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 tabular-nums">
+                  {history.length}
+                </span>
+              )}
+            </button>
+
             {/* 明暗模式切换 */}
             <button
               onClick={toggleTheme}
@@ -307,6 +403,24 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
                        text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-600 text-sm resize-y outline-none
                        focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
           />
+
+          {/* 最近查询快捷标签 */}
+          {history.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-1 text-xs">
+              <span className="text-[11px] text-slate-400 dark:text-zinc-500 shrink-0 font-medium">🕒 最近:</span>
+              {history.slice(0, 5).map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => handleSelectHistory(h)}
+                  className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-50 dark:bg-zinc-800/80 dark:hover:bg-indigo-950/40 text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-[11px] border border-slate-200/80 dark:border-zinc-700/60 transition-all shrink-0 max-w-[140px] sm:max-w-[180px] truncate"
+                  title={`点击直接查看结果: ${h.keywords}`}
+                >
+                  {h.keywords}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Settings Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
@@ -369,6 +483,7 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
           {/* Action Bar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4 sm:mt-5">
             <button
+              id="btn-start-query"
               onClick={doQuery}
               disabled={loading || !kwCount}
               className="w-full sm:w-auto px-7 py-3 rounded-xl bg-indigo-600 text-white text-sm font-bold
@@ -594,6 +709,17 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
             </div>
           </div>
         )}
+
+        {/* History Drawer */}
+        <HistoryDrawer
+          isOpen={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          history={history}
+          onSelect={handleSelectHistory}
+          onRerun={handleRerunHistory}
+          onDelete={handleDeleteHistory}
+          onClearAll={handleClearAllHistory}
+        />
 
         {/* Toast */}
         <Toast msg={toast.msg} isError={toast.isError} />
