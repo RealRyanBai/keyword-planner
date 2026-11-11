@@ -87,7 +87,7 @@ function Toast({ msg, isError }: { msg: string; isError?: boolean }) {
 
 type SortKey = keyof KeywordResult;
 
-export default function KeywordPlanner() {
+export default function KeywordPlanner({ secretPath }: { secretPath?: string }) {
   // ── 状态 ──────────────────────────────────────────────
   const [keywords, setKeywords] = useState("");
   const [mode, setMode] = useState<"historical" | "ideas">("historical");
@@ -246,10 +246,10 @@ export default function KeywordPlanner() {
       <header className="relative text-center mb-10">
         <button
           onClick={handleLock}
-          title="退出登录并伪装为 404"
+          title="退出登录"
           className="absolute right-0 top-0 px-3 py-1.5 rounded-lg border border-zinc-800 bg-surface-2 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 text-xs font-medium transition-all inline-flex items-center gap-1.5"
         >
-          🔒 <span>锁定伪装</span>
+          🔒 <span>退出登录</span>
         </button>
         <h1 className="text-[28px] font-bold tracking-tight bg-gradient-to-r from-zinc-100 via-zinc-200 to-indigo-400 bg-clip-text text-transparent">
           🔍 Keyword Planner
