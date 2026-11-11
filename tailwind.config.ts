@@ -1,14 +1,15 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
         surface: {
-          DEFAULT: "#12121a",
-          2: "#1a1a26",
-          3: "#22222e",
+          DEFAULT: "var(--surface)",
+          2: "var(--surface-2)",
+          3: "var(--surface-3)",
         },
       },
       fontFamily: {

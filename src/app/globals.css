@@ -3,19 +3,40 @@
 @tailwind utilities;
 
 :root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --border-color: #e2e8f0;
+  --text-main: #0f172a;
+  --text-dim: #64748b;
+  --text-muted: #94a3b8;
+  --scroll-thumb: #cbd5e1;
+}
+
+.dark {
   --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface-2: #1a1a26;
+  --surface-3: #22222e;
+  --border-color: #27273a;
+  --text-main: #f1f1f8;
+  --text-dim: #9494ad;
+  --text-muted: #5a5a72;
+  --scroll-thumb: #2a2a3a;
 }
 
 body {
   background: var(--bg);
-  color: #e4e4ef;
+  color: var(--text-main);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* 自定义滚动条 */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a5a; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
 
 /* 表格排序箭头动画 */
 .sort-arrow {
