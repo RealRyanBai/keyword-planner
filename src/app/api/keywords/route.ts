@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
       location = "us",
       language = "en",
       maxIdeas = 50,
+      dateRange,
     } = body;
 
     // 解析关键词（逗号或换行分隔，去重）
@@ -27,8 +28,8 @@ export async function POST(req: NextRequest) {
 
     const results =
       mode === "ideas"
-        ? await queryIdeas(kws, location, language, maxIdeas)
-        : await queryHistorical(kws, location, language);
+        ? await queryIdeas(kws, location, language, maxIdeas, dateRange)
+        : await queryHistorical(kws, location, language, dateRange);
 
     return NextResponse.json({ results, count: results.length });
   } catch (err) {

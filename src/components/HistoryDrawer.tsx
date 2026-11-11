@@ -13,6 +13,7 @@ export interface QueryHistoryItem {
   language: string;
   resultsCount: number;
   results: KeywordResult[];
+  dateRangeStr?: string;
 }
 
 interface Props {
@@ -130,6 +131,13 @@ export default function HistoryDrawer({
                   <div className="text-xs font-medium text-slate-900 dark:text-white line-clamp-2 break-words">
                     {item.keywords}
                   </div>
+
+                  {(item.dateRangeStr || item.results?.[0]?.dateRangeStr) && (
+                    <div className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-1">
+                      <span>📅</span>
+                      <span className="truncate">{item.dateRangeStr || item.results?.[0]?.dateRangeStr}</span>
+                    </div>
+                  )}
 
                   {/* 第三行：结果统计与快捷操作 */}
                   <div className="flex items-center justify-between pt-2 border-t border-slate-200/70 dark:border-zinc-800/80 text-xs">

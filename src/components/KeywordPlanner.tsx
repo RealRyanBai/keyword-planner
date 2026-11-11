@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { GEO_LOCATIONS, LANGUAGES, type KeywordResult } from "@/lib/constants";
+import {
+  GEO_LOCATIONS,
+  LANGUAGES,
+  DATE_RANGES,
+  type KeywordResult,
+} from "@/lib/constants";
 import { useTheme } from "@/lib/useTheme";
 import HistoryDrawer, { QueryHistoryItem } from "./HistoryDrawer";
+import MonthlyBreakdownModal from "./MonthlyBreakdownModal";
 
 // ════════════════════════════════════════════════════════════
 //  Sparkline 迷你趋势图
@@ -98,6 +104,12 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
   const [location, setLocation] = useState("us");
   const [language, setLanguage] = useState("en");
   const [maxIdeas, setMaxIdeas] = useState(50);
+  const [dateRangeType, setDateRangeType] = useState("past_12");
+  const [customStartYear, setCustomStartYear] = useState(2025);
+  const [customStartMonth, setCustomStartMonth] = useState(1);
+  const [customEndYear, setCustomEndYear] = useState(2025);
+  const [customEndMonth, setCustomEndMonth] = useState(12);
+  const [selectedKeywordForModal, setSelectedKeywordForModal] = useState<KeywordResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<KeywordResult[]>([]);
   const [hasQueried, setHasQueried] = useState(false);
@@ -162,6 +174,13 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
           location,
           language,
           maxIdeas,
+          dateRange: {
+            type: dateRangeType,
+            startYear: customStartYear,
+            startMonth: customStartMonth,
+            endYear: customEndYear,
+            endMonth: customEndMonth,
+          },
         }),
       });
       const data = await res.json();
@@ -186,6 +205,7 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
           language,
           resultsCount: data.results.length,
           results: data.results,
+          dateRangeStr: data.results[0]?.dateRangeStr || "",
         };
         setHistory((prev) => {
           const updated = [newItem, ...prev.filter((h) => h.keywords !== newItem.keywords)].slice(0, 50);
@@ -200,7 +220,20 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
     } finally {
       setLoading(false);
     }
-  }, [kwCount, parseKws, mode, location, language, maxIdeas, showToast]);
+  }, [
+    kwCount,
+    parseKws,
+    mode,
+    location,
+    language,
+    maxIdeas,
+    dateRangeType,
+    customStartYear,
+    customStartMonth,
+    customEndYear,
+    customEndMonth,
+    showToast,
+  ]);
 
   // ── 历史记录操作 ──────────────────────────────────────
   const handleSelectHistory = useCallback((item: QueryHistoryItem) => {
@@ -423,7 +456,7 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
           )}
 
           {/* Settings Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
             <div>
               <label className="block text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
                 目标地区
@@ -462,6 +495,25 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
               </select>
             </div>
 
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                📅 时间范围 (月均统计区间)
+              </label>
+              <select
+                value={dateRangeType}
+                onChange={(e) => setDateRangeType(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-[#1a1a26] border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 text-sm
+                           outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20
+                           appearance-none cursor-pointer transition-all
+                           bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20fill%3D%22%236b7280%22%3E%3Cpath%20d%3D%22M6%208.5L1%203.5h10z%22/%3E%3C/svg%3E')]
+                           bg-no-repeat bg-[right_12px_center]"
+              >
+                {Object.entries(DATE_RANGES).map(([key, { label }]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+
             {mode === "ideas" && (
               <div>
                 <label className="block text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
@@ -479,6 +531,62 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
               </div>
             )}
           </div>
+
+          {/* 自定义时间段选择 */}
+          {dateRangeType === "custom" && (
+            <div className="mt-3 p-3.5 rounded-xl bg-slate-50 dark:bg-[#1a1a26] border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-3 text-xs">
+              <span className="font-semibold text-slate-700 dark:text-zinc-300">自定义时间段:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 dark:text-zinc-400">起始</span>
+                <select
+                  value={customStartYear}
+                  onChange={(e) => setCustomStartYear(Number(e.target.value))}
+                  className="px-2.5 py-1.5 rounded-md bg-white dark:bg-[#12121a] border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 font-medium"
+                >
+                  {[2026, 2025, 2024, 2023, 2022].map((y) => (
+                    <option key={y} value={y}>{y}年</option>
+                  ))}
+                </select>
+                <select
+                  value={customStartMonth}
+                  onChange={(e) => setCustomStartMonth(Number(e.target.value))}
+                  className="px-2.5 py-1.5 rounded-md bg-white dark:bg-[#12121a] border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 font-medium"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>{m}月</option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="text-slate-400 dark:text-zinc-500 font-bold">~</span>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 dark:text-zinc-400">结束</span>
+                <select
+                  value={customEndYear}
+                  onChange={(e) => setCustomEndYear(Number(e.target.value))}
+                  className="px-2.5 py-1.5 rounded-md bg-white dark:bg-[#12121a] border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 font-medium"
+                >
+                  {[2026, 2025, 2024, 2023, 2022].map((y) => (
+                    <option key={y} value={y}>{y}年</option>
+                  ))}
+                </select>
+                <select
+                  value={customEndMonth}
+                  onChange={(e) => setCustomEndMonth(Number(e.target.value))}
+                  className="px-2.5 py-1.5 rounded-md bg-white dark:bg-[#12121a] border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 font-medium"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>{m}月</option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="text-[11px] text-slate-400 dark:text-zinc-500 ml-auto">
+                * Google 关键词历史数据按自然月结算（通常为前一月或前两月）
+              </span>
+            </div>
+          )}
 
           {/* Action Bar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4 sm:mt-5">
@@ -576,6 +684,22 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
               </div>
             </div>
 
+            {/* 时间区间说明条 */}
+            {results[0]?.dateRangeStr && (
+              <div className="px-4 sm:px-5 py-2.5 bg-indigo-50/70 dark:bg-indigo-950/20 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between flex-wrap gap-2 text-xs">
+                <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300">
+                  <span>📅</span>
+                  <span className="font-semibold">统计周期:</span>
+                  <span className="font-bold underline decoration-indigo-400 underline-offset-2">{results[0].dateRangeStr}</span>
+                  <span className="hidden sm:inline text-slate-400 dark:text-zinc-500">·</span>
+                  <span className="hidden sm:inline text-slate-500 dark:text-zinc-400 text-[11px]">“月均搜索量”为该周期内各月份平均值</span>
+                </div>
+                <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                  💡 点击任意月均搜索量或走势图，可展开逐月明细柱状图
+                </span>
+              </div>
+            )}
+
             {/* 1. 表格视图 (带首列粘性固定，横向滑动极佳) */}
             {viewMode === "table" ? (
               <div className="overflow-x-auto relative">
@@ -612,13 +736,25 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
                         key={i}
                         className="border-b border-slate-100 dark:border-zinc-800/60 hover:bg-slate-50 dark:hover:bg-[#1a1a26] transition-colors"
                       >
-                        <td className="sticky left-0 bg-white dark:bg-[#12121a] px-3.5 py-3 font-medium text-slate-900 dark:text-white max-w-[200px] sm:max-w-[280px] break-words z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.4)]">
+                        <td
+                          onClick={() => setSelectedKeywordForModal(r)}
+                          className="sticky left-0 bg-white dark:bg-[#12121a] px-3.5 py-3 font-medium text-slate-900 dark:text-white max-w-[200px] sm:max-w-[280px] break-words z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.4)] cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
+                          title="点击查看逐月明细"
+                        >
                           {r.keyword}
                         </td>
-                        <td className="px-3.5 py-3 text-right font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">
+                        <td
+                          onClick={() => setSelectedKeywordForModal(r)}
+                          className="px-3.5 py-3 text-right font-semibold tabular-nums text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline"
+                          title="点击查看逐月明细走势"
+                        >
                           {r.avgMonthlySearches.toLocaleString()}
                         </td>
-                        <td className="px-3 py-2">
+                        <td
+                          onClick={() => setSelectedKeywordForModal(r)}
+                          className="px-3 py-2 cursor-pointer hover:opacity-75 transition-opacity"
+                          title="点击查看逐月明细柱状图"
+                        >
                           <Sparkline data={r.monthlyTrend} />
                         </td>
                         <td className="px-3.5 py-3">
@@ -647,16 +783,24 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
                     className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-[#161622] space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-semibold text-slate-900 dark:text-white text-sm break-words">
+                      <span
+                        onClick={() => setSelectedKeywordForModal(r)}
+                        className="font-semibold text-slate-900 dark:text-white text-sm break-words cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
+                        title="点击查看逐月明细"
+                      >
                         {r.keyword}
                       </span>
                       <CompBadge level={r.competition} />
                     </div>
 
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200 dark:border-zinc-800/80">
+                    <div
+                      onClick={() => setSelectedKeywordForModal(r)}
+                      className="flex items-center justify-between text-xs pt-1 border-t border-slate-200 dark:border-zinc-800/80 cursor-pointer hover:bg-slate-100/60 dark:hover:bg-zinc-800/40 -mx-1 px-1 py-1 rounded transition-colors"
+                      title="点击查看逐月明细"
+                    >
                       <div>
                         <span className="text-slate-400 dark:text-zinc-500 block text-[10px] uppercase">
-                          月均搜索量
+                          月均搜索量 (点击明细)
                         </span>
                         <span className="text-base font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
                           {r.avgMonthlySearches.toLocaleString()}
@@ -672,7 +816,11 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                    <div
+                      onClick={() => setSelectedKeywordForModal(r)}
+                      className="flex items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-zinc-400 cursor-pointer"
+                      title="点击查看逐月走势图"
+                    >
                       <span>竞争指数: <strong className="text-slate-700 dark:text-zinc-300">{r.competitionIndex}</strong></span>
                       <Sparkline data={r.monthlyTrend} />
                     </div>
@@ -719,6 +867,12 @@ export default function KeywordPlanner({ secretPath }: { secretPath?: string }) 
           onRerun={handleRerunHistory}
           onDelete={handleDeleteHistory}
           onClearAll={handleClearAllHistory}
+        />
+
+        {/* Monthly Breakdown Modal */}
+        <MonthlyBreakdownModal
+          keywordData={selectedKeywordForModal}
+          onClose={() => setSelectedKeywordForModal(null)}
         />
 
         {/* Toast */}

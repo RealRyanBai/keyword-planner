@@ -37,6 +37,38 @@ export const LANGUAGES: Record<string, { id: string; label: string }> = {
   nl:    { id: "1010", label: "Nederlands" },
 };
 
+// ── 时间区间预设 ────────────────────────────────────────
+export const DATE_RANGES: Record<string, { label: string; monthsCount: number }> = {
+  past_12:    { label: "最近 12 个月 (标准默认)", monthsCount: 12 },
+  past_24:    { label: "最近 24 个月 (2 年趋势)", monthsCount: 24 },
+  past_6:     { label: "最近 6 个月 (近半年)", monthsCount: 6 },
+  past_3:     { label: "最近 3 个月 (近一季度)", monthsCount: 3 },
+  last_month: { label: "上个月 (最新单月数据)", monthsCount: 1 },
+  custom:     { label: "自定义月份区间...", monthsCount: 0 },
+};
+
+export const MONTH_TO_NUM: Record<string, number> = {
+  JANUARY: 1, FEBRUARY: 2, MARCH: 3, APRIL: 4, MAY: 5, JUNE: 6,
+  JULY: 7, AUGUST: 8, SEPTEMBER: 9, OCTOBER: 10, NOVEMBER: 11, DECEMBER: 12,
+};
+
+export const NUM_TO_MONTH = [
+  "", "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+];
+
+export function formatMonthCN(month: string | number): string {
+  if (typeof month === "number") return `${month}月`;
+  const num = MONTH_TO_NUM[month.toUpperCase()] || month;
+  return `${num}月`;
+}
+
+export interface MonthlyVolumeItem {
+  year: number;
+  month: string;
+  searches: number;
+}
+
 export interface KeywordResult {
   keyword: string;
   avgMonthlySearches: number;
@@ -44,5 +76,6 @@ export interface KeywordResult {
   competitionIndex: number;
   lowBid: number;
   highBid: number;
-  monthlyTrend: { year: number; month: string; searches: number }[];
+  monthlyTrend: MonthlyVolumeItem[];
+  dateRangeStr?: string;
 }
